@@ -42,7 +42,6 @@ export const uploadToCloud = async (file: File) => {
     const uploadRes = await files.upload(file.name, bodyBuffer, {
       contentType,
     });
-    console.log("uploadRes, v", uploadRes);
 
     return { ok: true, key: file.name };
   } catch (error) {

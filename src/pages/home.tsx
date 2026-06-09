@@ -23,20 +23,14 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import {
-  CheckCircle2,
-  CircleDashed,
-  AlertCircle,
   Calendar,
   FileAudio,
   FileText,
   ImageIcon,
-  Book,
-  BarChart2,
   ChevronRight,
-  MonitorPlay,
   FileBox,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -52,31 +46,9 @@ import { uploadToCloud } from "@/actions/uploadToCloud";
 import type { Id } from "../../convex/_generated/dataModel";
 import { formatDate } from "@/actions/formatDate";
 import { formatSize } from "@/actions/formatSize";
+import { ViewContent } from "@/components/ViewContent";
+import { Spinner } from "@/components/ui/spinner";
 
-type FileAsset = {
-  id: string;
-  name: string;
-  icon: ReactNode;
-  status: {
-    label: string;
-    variant: "success" | "error" | "neutral" | "warning";
-    time?: string; // e.g., "2h" for processing tasks
-    hasWarning?: boolean; // Renders the warning alert icon
-  };
-  type: {
-    label?: string; // Text label like "Video"
-    icon?: ReactNode; // React component for the type icon
-    isEmpty?: boolean; // Flag to render the empty placeholder (e.g., "——")
-  };
-  owner: {
-    name: string;
-    initials: string;
-    colorClass: string;
-  };
-  dateAdded?: string; // Optional since some assets might not have a date
-  size: string;
-  showDetails?: boolean; // UI state flag for hovered/active rows
-};
 type FileType = {
   _id: Id<"files">;
   _creationTime: number;
@@ -85,104 +57,22 @@ type FileType = {
   owner: string;
   size: number;
 };
-/* const data: FileAsset[] = [
-  {
-    id: "1",
-    name: "Intro to UX — Lesson 1.mp4",
-    icon: <MonitorPlay className="h-4 w-4 text-slate-500" />,
-    status: { label: "Ready", variant: "success" },
-    type: { label: "Video" },
-    owner: {
-      name: "Lemi",
-      initials: "L",
-      colorClass: "bg-slate-100 text-slate-600",
-    },
-    size: "240 MB",
-    showDetails: true,
-  },
-  {
-    id: "2",
-    name: "Podcast Ep. 12 — Master.wav",
-    icon: <FileAudio className="h-4 w-4 text-slate-500" />,
-    status: {
-      label: "Processing",
-      variant: "error",
-      time: "2h",
-      hasWarning: true,
-    },
-    type: { isEmpty: true },
-    owner: {
-      name: "Hadad",
-      initials: "HA",
-      colorClass: "bg-rose-100 text-rose-700",
-    },
-    dateAdded: "May 28, 2026",
-    size: "1.2 GB",
-  },
-  {
-    id: "3",
-    name: "Brand Guidelines.pdf",
-    icon: <FileText className="h-4 w-4 text-orange-400" />,
-    status: { label: "Ready", variant: "success" },
-    type: { icon: <BarChart2 className="h-4 w-4 text-slate-400" /> },
-    owner: {
-      name: "Aline",
-      initials: "A",
-      colorClass: "bg-slate-100 text-slate-600",
-    },
-    dateAdded: "May 22, 2026",
-    size: "8.4 MB",
-  },
-  {
-    id: "4",
-    name: "Hero Banner — Homepage.png",
-    icon: <ImageIcon className="h-4 w-4 text-slate-500" />,
-    status: { label: "Ready", variant: "neutral" },
-    type: { icon: <BarChart2 className="h-4 w-4 text-slate-400" /> },
-    owner: {
-      name: "Lemi",
-      initials: "L",
-      colorClass: "bg-slate-100 text-slate-600",
-    },
-    dateAdded: "May 20, 2026",
-    size: "2.1 MB",
-  },
-  {
-    id: "5",
-    name: "Design Systems.epub",
-    icon: <Book className="h-4 w-4 text-emerald-500" />,
-    status: { label: "Ready", variant: "success" },
-    type: { icon: <AlertCircle className="h-4 w-4 text-amber-500" /> },
-    owner: {
-      name: "Axel",
-      initials: "AX",
-      colorClass: "bg-orange-100 text-orange-700",
-    },
-    dateAdded: "May 18, 2026",
-    size: "14 MB",
-  },
-  {
-    id: "6",
-    name: "Customer Story — Acme.mp4",
-    icon: <MonitorPlay className="h-4 w-4 text-slate-500" />,
-    status: { label: "Processing", variant: "neutral" },
-    type: { isEmpty: true },
-    owner: {
-      name: "Axel",
-      initials: "AX",
-      colorClass: "bg-orange-100 text-orange-700",
-    },
-    size: "560 MB",
-  },
-]; */
 
 export const Home = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { register, handleSubmit } = useForm();
+  const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
+  const [activeFile, setActiveFile] = useState<{ name: string; type: string }>({
+    name: "",
+    type: "",
+  });
+  const {
+    register,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm();
 
-  console.log("Home");
   const filesData = useQuery(api.files.getFiles);
-  console.log(filesData);
+
   const columns: ColumnDef<FileType>[] = [
     {
       id: "select",
@@ -312,20 +202,25 @@ export const Home = () => {
       accessorKey: "size",
       header: "Size",
       cell: ({ row }) => {
+        const fileName = row.getValue("name") as string;
+        const fileType = row.getValue("type") as string;
         return (
           <div className="flex items-center justify-between group cursor-pointer">
             <span className="text-sm font-medium text-slate-700">
               {formatSize(row.getValue("size") as number)}
-              {/*{((row.getValue("size") as number) / (1024 * 1024)).toFixed(2)}MB*/}
             </span>
 
             {/* Hover state / Action trigger mimicking the "View Details >" */}
-            {/*<div
-              className={`flex items-center text-sm text-slate-400 transition-opacity ${row.original.showDetails ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+            <div
+              onClick={() => {
+                setViewDetailsOpen(true);
+                setActiveFile({ name: fileName, type: fileType });
+              }}
+              className={`flex items-center text-sm text-slate-400 transition-opacity opacity-100`}
             >
               <span>View Details</span>
               <ChevronRight className="h-4 w-4 ml-1" />
-            </div>*/}
+            </div>
           </div>
         );
       },
@@ -336,7 +231,7 @@ export const Home = () => {
   const onSubmit = async (data: FieldValues) => {
     try {
       const { name, size, type } = data.file[0];
-      console.log({ name, size, type });
+
       await uploadToCloud(data.file[0]);
 
       const res = await convexUpload({
@@ -345,7 +240,6 @@ export const Home = () => {
         type,
         owner: "Adebisi",
       });
-      console.log("Upload successful", res);
     } catch (error) {
       console.error(error);
     }
@@ -401,9 +295,24 @@ export const Home = () => {
                 name="file"
               />
 
-              <Button type="submit">Upload</Button>
+              <Button type="submit">
+                {!isSubmitting ? "Upload" : <Spinner />}
+              </Button>
             </form>
             {/*form ends*/}
+          </DialogComponent>
+          <DialogComponent
+            isOpen={viewDetailsOpen}
+            setIsOpen={setViewDetailsOpen}
+          >
+            <DialogHeader>
+              <DialogTitle>View File</DialogTitle>
+              <DialogDescription>Preview of selected file</DialogDescription>
+            </DialogHeader>
+            <ViewContent
+              fileName={activeFile?.name}
+              fileType={activeFile?.type}
+            />
           </DialogComponent>
         </div>
         {/*copied from AI*/}
