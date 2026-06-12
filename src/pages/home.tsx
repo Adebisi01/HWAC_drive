@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -48,6 +49,8 @@ import { formatDate } from "@/actions/formatDate";
 import { formatSize } from "@/actions/formatSize";
 import { ViewContent } from "@/components/ViewContent";
 import { Spinner } from "@/components/ui/spinner";
+import { authClient } from "@/lib/auth-client";
+import { useNavigate } from "react-router";
 
 type FileType = {
   _id: Id<"files">;
@@ -60,6 +63,7 @@ type FileType = {
 
 export const Home = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [activeFile, setActiveFile] = useState<{ name: string; type: string }>({
     name: "",
@@ -234,12 +238,15 @@ export const Home = () => {
 
       await uploadToCloud(data.file[0]);
 
-      const res = await convexUpload({
+      await convexUpload({
         name,
         size,
         type,
         owner: "Adebisi",
       });
+
+      toast.success("Upload successful", { position: "top-center" });
+      setIsOpen(false);
     } catch (error) {
       console.error(error);
     }
@@ -252,7 +259,18 @@ export const Home = () => {
   return (
     <>
       <div className="p-5 text-3xl">
-        <h1 className="text-black">Drive</h1>
+        <div className="flex justify-between">
+          <h1 className="text-black">Drive</h1>
+          <Button
+            variant={"destructive"}
+            onClick={() => {
+              authClient.signOut();
+              navigate("/auth/login");
+            }}
+          >
+            Logout
+          </Button>
+        </div>
         <div className="py-10 flex justify-between">
           <Select>
             <SelectTrigger className="w-24">
