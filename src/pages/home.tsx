@@ -21,6 +21,11 @@ import {
   type ColumnDef,
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type PaginationState,
+  type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
 import {
@@ -51,8 +56,9 @@ import { ViewContent } from "@/components/ViewContent";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
 import { useNavigate } from "react-router";
+import { Input } from "@/components/ui/input";
 
-type FileType = {
+export type FileType = {
   _id: Id<"files">;
   _creationTime: number;
   type: string;
@@ -64,7 +70,13 @@ type FileType = {
 export const Home = () => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const [globalFilter, setGlobalFilter] = useState("");
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
   const [activeFile, setActiveFile] = useState<{ name: string; type: string }>({
     name: "",
     type: "",
@@ -80,22 +92,22 @@ export const Home = () => {
   const columns: ColumnDef<FileType>[] = [
     {
       id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!value)}
-          aria-label="Select all"
-          className="ml-2"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!value)}
-          aria-label="Select row"
-          className="ml-2"
-        />
-      ),
+      // header: ({ table }) => (
+      //   <Checkbox
+      //     checked={table.getIsAllPageRowsSelected()}
+      //     onCheckedChange={(value) => table.toggleAllPageRowsSelected(!value)}
+      //     aria-label="Select all"
+      //     className="ml-2"
+      //   />
+      // ),
+      // cell: ({ row }) => (
+      //   <Checkbox
+      //     checked={row.getIsSelected()}
+      //     onCheckedChange={(value) => row.toggleSelected(!value)}
+      //     aria-label="Select row"
+      //     className="ml-2"
+      //   />
+      // ),
       enableSorting: false,
       enableHiding: false,
     },
@@ -255,6 +267,17 @@ export const Home = () => {
     data: filesData ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onGlobalFilterChange: setGlobalFilter,
+    getFilteredRowModel: getFilteredRowModel(),
+    onSortingChange: setSorting,
+    onPaginationChange: setPagination,
+    state: {
+      sorting,
+      pagination,
+      globalFilter,
+    },
   });
   return (
     <>
@@ -285,7 +308,13 @@ export const Home = () => {
             </SelectContent>
           </Select>
           {/*Dialog component*/}
-          <div>
+          <div className="flex gap-2">
+            <Input
+              value={globalFilter}
+              onChange={(e) => {
+                setGlobalFilter(e.target.value);
+              }}
+            />
             <Button
               onClick={() => {
                 setIsOpen(true);
@@ -348,6 +377,7 @@ export const Home = () => {
                         <TableHead
                           key={header.id}
                           className="text-slate-500 font-medium h-12"
+                          onClick={header.column.getToggleSortingHandler()}
                         >
                           {header.isPlaceholder
                             ? null
@@ -355,6 +385,15 @@ export const Home = () => {
                                 header.column.columnDef.header,
                                 header.getContext(),
                               )}
+                          {{
+                            asc: " 🔼",
+                            desc: " 🔽",
+                          }[header.column.getIsSorted() as string] ?? null}
+                          {/*{header.column.getCanFilter() ? (
+                            <div>
+                              <Filter column={header.column} table={table} />
+                            </div>
+                          ) : null}*/}
                         </TableHead>
                       );
                     })}
@@ -391,6 +430,59 @@ export const Home = () => {
                 )}
               </TableBody>
             </Table>
+            <div className="flex items-center gap-2 text-sm">
+              <button
+                className="border rounded p-1"
+                onClick={() => table.firstPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                {"<<"}
+              </button>
+              <button
+                className="border rounded p-1"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                {"<"}
+              </button>
+              <button
+                className="border rounded p-1"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                {">"}
+              </button>
+              <button
+                className="border rounded p-1"
+                onClick={() => table.lastPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                {">>"}
+              </button>
+              <span className="flex items-center gap-1">
+                <div>Page</div>
+                <strong>
+                  {table.getState().pagination.pageIndex + 1} of{" "}
+                  {table.getPageCount().toLocaleString()}
+                </strong>
+              </span>
+              <span className="flex items-center gap-1">
+                | Go to page:
+                <input
+                  type="number"
+                  min="1"
+                  max={table.getPageCount()}
+                  defaultValue={table.getState().pagination.pageIndex + 1}
+                  onChange={(e) => {
+                    const page = e.target.value
+                      ? Number(e.target.value) - 1
+                      : 0;
+                    table.setPageIndex(page);
+                  }}
+                  className="border p-1 rounded w-16"
+                />
+              </span>
+            </div>
           </div>
         </div>
       </div>
